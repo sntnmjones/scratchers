@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import './Scratchers.css'
+import prizeDataFallback from './prize-data.json'
 
 const API_BASE =
   'https://www.calottery.com/api/Sitecore/ScratchersFilteredList/GetScratchers'
@@ -125,6 +126,7 @@ function PrizeDetailModal({ game, onClose }) {
   const [prizes, setPrizes] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isFallback, setIsFallback] = useState(false)
   const [sortBy, setSortBy] = useState('prize')
   const [sortDir, setSortDir] = useState('desc')
 
@@ -132,10 +134,7 @@ function PrizeDetailModal({ game, onClose }) {
     let cancelled = false
     async function fetchDetail() {
       try {
-        const gamePath = `en${game.GameProductPage}`
-        const url = import.meta.env.DEV
-          ? `/calottery-api/${gamePath}`
-          : `/api/proxy?path=${encodeURIComponent(gamePath)}`
+        const url = `https://www.calottery.com/en${game.GameProductPage}`
         const res = await fetch(url)
         if (!res.ok) throw new Error(`Failed to load: ${res.status}`)
         const html = await res.text()
@@ -143,12 +142,23 @@ function PrizeDetailModal({ game, onClose }) {
         if (!parsed) throw new Error('Could not find prize table on game page')
         if (!cancelled) {
           setPrizes(parsed)
+          setIsFallback(false)
+          if (!cancelled) setLoading(false)
         }
+        return
       } catch (err) {
+        const fallback = prizeDataFallback[game.GameNumber]
+        if (fallback && fallback.length > 0) {
+          if (!cancelled) {
+            setPrizes(fallback)
+            setIsFallback(true)
+            if (!cancelled) setLoading(false)
+          }
+          return
+        }
         if (!cancelled) setError(err.message)
-      } finally {
-        if (!cancelled) setLoading(false)
       }
+      if (!cancelled) setLoading(false)
     }
     fetchDetail()
     return () => {
@@ -222,6 +232,12 @@ function PrizeDetailModal({ game, onClose }) {
             ✕
           </button>
         </div>
+
+        {isFallback && (
+          <div className="fallback-banner">
+            Showing cached data from build time. Live data is currently unavailable.
+          </div>
+        )}
 
         {loading && <div className="modal-body">Loading prize data...</div>}
         {error && <div className="modal-body error">Error: {error}</div>}

@@ -194,6 +194,23 @@
   color: var(--accent);
 }
 
+.fallback-banner {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 10px 24px;
+  font-size: 13px;
+  text-align: center;
+  border-bottom: 1px solid #f59e0b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .fallback-banner {
+    background: #422006;
+    color: #fbbf24;
+    border-bottom-color: #92400e;
+  }
+}
+
 .modal-body {
   padding: 32px;
   text-align: center;

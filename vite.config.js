@@ -1,18 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import prizeDataPlugin from './vite-plugin-prize-data.js'
 
 export default defineConfig({
-  plugins: [react()],
-  server: {
-    proxy: {
-      '/calottery-api': {
-        target: 'https://www.calottery.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/calottery-api/, ''),
-        headers: {
-          'Referer': 'https://www.calottery.com/',
-        },
-      },
-    },
-  },
+  plugins: [react(), prizeDataPlugin()],
 })
