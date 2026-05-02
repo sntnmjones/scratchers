@@ -1,0 +1,2 @@
+# scratchers
+Metadata about scratchers
