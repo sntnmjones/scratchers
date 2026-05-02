@@ -82,42 +82,34 @@ function parsePrizeTable(html) {
 function computeStats(prizes, overallOdds) {
   if (!prizes.length) return null
 
-  const totalTicketsInitial = prizes.reduce((max, p) => {
-    const estimated = p.odds * p.total
-    return Math.max(max, estimated)
-  }, 0)
-
   const totalPrizesInitially = prizes.reduce((sum, p) => sum + p.total, 0)
   const totalPrizesRemaining = prizes.reduce((sum, p) => sum + p.remaining, 0)
 
-  const remainingRatio =
-    totalPrizesInitially > 0 ? totalPrizesRemaining / totalPrizesInitially : 0
-  const totalTicketsRemaining = Math.round(totalTicketsInitial * remainingRatio)
+  const originalOverallOdds = parseOdds(overallOdds)
+  const totalTicketsInitial = originalOverallOdds > 0
+    ? Math.round(originalOverallOdds * totalPrizesInitially)
+    : 0
 
-  const claimedTickets = totalTicketsInitial - totalTicketsRemaining
-  const soldPct =
-    totalTicketsInitial > 0 ? claimedTickets / totalTicketsInitial : 0
+  const estTicketsRemaining = prizes.reduce(
+    (max, p) => Math.max(max, p.odds * p.remaining),
+    0
+  )
+
+  const claimedTickets = totalTicketsInitial - estTicketsRemaining
+  const soldPct = totalTicketsInitial > 0 ? claimedTickets / totalTicketsInitial : 0
 
   const currentOverallOdds =
-    totalPrizesRemaining > 0 && totalTicketsRemaining > 0
-      ? totalTicketsRemaining / totalPrizesRemaining
-      : null
-
-  const originalOverallOdds = parseOdds(overallOdds)
-  const originalTotalTickets =
-    originalOverallOdds > 0 && totalPrizesInitially > 0
-      ? Math.round(originalOverallOdds * totalPrizesInitially)
+    totalPrizesRemaining > 0 && estTicketsRemaining > 0
+      ? estTicketsRemaining / totalPrizesRemaining
       : null
 
   return {
     totalTicketsInitial,
-    totalTicketsRemaining,
+    totalTicketsRemaining: estTicketsRemaining,
     totalPrizesInitially,
     totalPrizesRemaining,
-    claimedTickets,
     soldPct,
     currentOverallOdds,
-    originalTotalTickets,
     prizeTiers: prizes,
   }
 }
@@ -248,17 +240,17 @@ function PrizeDetailModal({ game, onClose }) {
               <div className="stat-card">
                 <span className="stat-label">Total Tickets Printed</span>
                 <span className="stat-value">
-                  {formatNum(stats.originalTotalTickets || stats.totalTicketsInitial)}
+                  {formatNum(stats.totalTicketsInitial)}
                 </span>
               </div>
               <div className="stat-card">
-                <span className="stat-label">Tickets Remaining</span>
+                <span className="stat-label">Est. Tickets Left</span>
                 <span className="stat-value">
                   {formatNum(stats.totalTicketsRemaining)}
                 </span>
               </div>
               <div className="stat-card">
-                <span className="stat-label">% Sold</span>
+                <span className="stat-label">Est. % Sold</span>
                 <span className="stat-value">{formatPct(stats.soldPct)}</span>
               </div>
               <div className="stat-card highlight">
@@ -266,7 +258,7 @@ function PrizeDetailModal({ game, onClose }) {
                 <span className="stat-value">1 : {game.OverallOdds}</span>
               </div>
               <div className="stat-card highlight">
-                <span className="stat-label">Current Odds</span>
+                <span className="stat-label">Stat. Odds</span>
                 <span className="stat-value">
                   {stats.currentOverallOdds != null
                     ? `1 : ${stats.currentOverallOdds.toFixed(2)}`
