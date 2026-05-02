@@ -85,10 +85,10 @@ function computeStats(prizes, overallOdds) {
   const totalPrizesInitially = prizes.reduce((sum, p) => sum + p.total, 0)
   const totalPrizesRemaining = prizes.reduce((sum, p) => sum + p.remaining, 0)
 
-  const originalOverallOdds = parseOdds(overallOdds)
-  const totalTicketsInitial = originalOverallOdds > 0
-    ? Math.round(originalOverallOdds * totalPrizesInitially)
-    : 0
+  const totalTicketsInitial = prizes.reduce(
+    (max, p) => Math.max(max, p.odds * p.total),
+    0
+  )
 
   const estTicketsRemaining = prizes.reduce(
     (max, p) => Math.max(max, p.odds * p.remaining),
@@ -103,6 +103,8 @@ function computeStats(prizes, overallOdds) {
       ? estTicketsRemaining / totalPrizesRemaining
       : null
 
+  const publishedOdds = parseOdds(overallOdds)
+
   return {
     totalTicketsInitial,
     totalTicketsRemaining: estTicketsRemaining,
@@ -110,6 +112,7 @@ function computeStats(prizes, overallOdds) {
     totalPrizesRemaining,
     soldPct,
     currentOverallOdds,
+    publishedOdds,
     prizeTiers: prizes,
   }
 }
