@@ -132,7 +132,10 @@ function PrizeDetailModal({ game, onClose }) {
     let cancelled = false
     async function fetchDetail() {
       try {
-        const url = `/calottery-api/en${game.GameProductPage}`
+        const gamePath = `en${game.GameProductPage}`
+        const url = import.meta.env.DEV
+          ? `/calottery-api/${gamePath}`
+          : `/api/proxy?path=${encodeURIComponent(gamePath)}`
         const res = await fetch(url)
         if (!res.ok) throw new Error(`Failed to load: ${res.status}`)
         const html = await res.text()
