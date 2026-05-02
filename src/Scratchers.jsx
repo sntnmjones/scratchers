@@ -122,6 +122,7 @@ function PrizeDetailModal({ game, onClose }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isFallback, setIsFallback] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [sortBy, setSortBy] = useState('prize')
   const [sortDir, setSortDir] = useState('desc')
 
@@ -223,9 +224,14 @@ function PrizeDetailModal({ game, onClose }) {
               <span className="modal-subtitle">Game #{game.GameNumber}</span>
             </div>
           </div>
-          <button className="modal-close" onClick={onClose}>
-            ✕
-          </button>
+          <div className="modal-actions">
+            <button className="modal-info-btn" onClick={() => setShowHelp((h) => !h)} title="What does this mean?">
+              ?
+            </button>
+            <button className="modal-close" onClick={onClose}>
+              ✕
+            </button>
+          </div>
         </div>
 
         {isFallback && (
@@ -236,6 +242,26 @@ function PrizeDetailModal({ game, onClose }) {
 
         {loading && <div className="modal-body">Loading prize data...</div>}
         {error && <div className="modal-body error">Error: {error}</div>}
+
+        {showHelp && (
+          <div className="help-overlay">
+            <h4>What these numbers mean</h4>
+            <dl className="help-list">
+              <dt>Total Tickets Printed</dt>
+              <dd>The estimated total number of tickets created. Calculated as the highest value of <code>odds × total prizes</code> across all prize tiers.</dd>
+              <dt>Est. Tickets Left</dt>
+              <dd>The minimum number of tickets that must still exist, based on unclaimed prizes. If a tier says "1 in 4,800,000" and 4 prizes remain, at least 19.2M tickets are left. This is a lower bound — there could be more non-winning tickets.</dd>
+              <dt>Est. % Sold</dt>
+              <dd>Derived from the gap between printed tickets and estimated remaining. Based on prize claim patterns, not actual sales data.</dd>
+              <dt>Original Odds</dt>
+              <dd>The published "1 in X" odds at game launch.</dd>
+              <dt>Stat. Odds</dt>
+              <dd>Estimated remaining tickets divided by total remaining prizes. If this is lower than the original odds, the game is statistically more favorable right now. Higher means less favorable.</dd>
+              <dt>Prizes Remaining</dt>
+              <dd>Straight count of how many prizes at all tiers are still unclaimed.</dd>
+            </dl>
+          </div>
+        )}
 
         {stats && (
           <>
@@ -340,6 +366,7 @@ function Scratchers() {
   const [typeFilter, setTypeFilter] = useState('')
   const [search, setSearch] = useState('')
   const [selectedGame, setSelectedGame] = useState(null)
+  const [showHelp, setShowHelp] = useState(false)
 
   useEffect(() => {
     async function fetchAll() {
@@ -366,16 +393,38 @@ function Scratchers() {
     fetchAll()
   }, [])
 
+  const augmented = useMemo(() => {
+    return scratchers.map((s) => {
+      const prizeTiers = prizeDataFallback[s.GameNumber]
+      if (!prizeTiers) return { ...s, statOdds: null, publishedOdds: parseOdds(s.OverallOdds) }
+
+      const totalPrizesRemaining = prizeTiers.reduce((sum, p) => sum + p.remaining, 0)
+      const totalPrizesInitially = prizeTiers.reduce((sum, p) => sum + p.total, 0)
+      const estRemaining = prizeTiers.reduce(
+        (max, p) => Math.max(max, p.odds * p.remaining),
+        0
+      )
+
+      return {
+        ...s,
+        statOdds: totalPrizesRemaining > 0 && estRemaining > 0
+          ? estRemaining / totalPrizesRemaining
+          : null,
+        publishedOdds: parseOdds(s.OverallOdds),
+      }
+    })
+  }, [scratchers])
+
   const gameTypes = useMemo(() => {
     const types = new Set()
-    scratchers.forEach((s) => {
+    augmented.forEach((s) => {
       if (s.GameType) types.add(s.GameType)
     })
     return Array.from(types).sort()
-  }, [scratchers])
+  }, [augmented])
 
   const filteredAndSorted = useMemo(() => {
-    let items = [...scratchers]
+    let items = [...augmented]
     if (typeFilter) {
       items = items.filter((s) => s.GameType === typeFilter)
     }
@@ -400,6 +449,9 @@ function Scratchers() {
         case 'odds':
           cmp = parseOdds(a.OverallOdds) - parseOdds(b.OverallOdds)
           break
+        case 'statOdds':
+          cmp = (a.statOdds || 0) - (b.statOdds || 0)
+          break
         case 'date':
           cmp = parseMarketDate(a.GotoMarketDate) - parseMarketDate(b.GotoMarketDate)
           break
@@ -409,7 +461,7 @@ function Scratchers() {
       return sortDir === 'asc' ? cmp : -cmp
     })
     return items
-  }, [scratchers, typeFilter, search, sortKey, sortDir])
+  }, [augmented, typeFilter, search, sortKey, sortDir])
 
   function handleSort(key) {
     if (sortKey === key) {
@@ -468,7 +520,27 @@ function Scratchers() {
             </option>
           ))}
         </select>
+        <button className="help-toggle" onClick={() => setShowHelp((h) => !h)} title="What does this mean?">
+          What does this mean?
+        </button>
       </div>
+
+      {showHelp && (
+        <div className="help-panel">
+          <dl className="help-list">
+            <dt>Price</dt>
+            <dd>Cost of a single ticket.</dd>
+            <dt>Top Prize</dt>
+            <dd>Maximum possible payout from the lottery's published data.</dd>
+            <dt>Odds</dt>
+            <dd>The published "1 in X" overall odds at game launch.</dd>
+            <dt>Est. Odds</dt>
+            <dd>Estimated current odds based on remaining prizes. Green means better than published, red means worse. If a tier's remaining prizes imply many tickets must still exist, this adjusts upward. Calculated from build-time prize snapshots.</dd>
+            <dt>Type</dt>
+            <dd>The game mechanic (e.g. Key Number Match, Crossword, Bingo).</dd>
+          </dl>
+        </div>
+      )}
 
       <div className="table-wrapper">
         <table className="scratchers-table">
@@ -488,6 +560,9 @@ function Scratchers() {
               <th className="sortable" onClick={() => handleSort('odds')}>
                 Odds {sortIcon('odds')}
               </th>
+              <th className="sortable" onClick={() => handleSort('statOdds')}>
+                Est. Odds {sortIcon('statOdds')}
+              </th>
               <th>Type</th>
             </tr>
           </thead>
@@ -506,6 +581,11 @@ function Scratchers() {
                 <td>{s.GamePrice}</td>
                 <td>{s.TopPrizeDollarAmt}</td>
                 <td>1 : {s.OverallOdds}</td>
+                <td className={`stat-odds-cell ${s.statOdds != null && s.statOdds < s.publishedOdds ? 'hot' : s.statOdds != null && s.statOdds > s.publishedOdds ? 'cold' : ''}`}>
+                  {s.statOdds != null
+                    ? `1 : ${s.statOdds.toFixed(2)}`
+                    : 'N/A'}
+                </td>
                 <td>{s.GameType || '—'}</td>
                 <td className="link-cell">
                   <a

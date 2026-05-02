@@ -41,6 +41,31 @@
   outline-offset: 1px;
 }
 
+.help-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--sans);
+}
+
+.help-toggle:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.help-panel {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+
 .table-wrapper {
   overflow-x: auto;
 }
@@ -116,6 +141,21 @@
   background: var(--accent-bg);
 }
 
+.stat-odds-cell {
+  font-family: var(--mono);
+  font-size: 14px;
+}
+
+.stat-odds-cell.hot {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.stat-odds-cell.cold {
+  color: #ef4444;
+  opacity: 0.8;
+}
+
 .no-results {
   text-align: center;
   padding: 32px;
@@ -179,6 +219,11 @@
   color: var(--text);
 }
 
+.modal-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .modal-close {
   background: none;
   border: none;
@@ -191,6 +236,24 @@
 
 .modal-close:hover {
   background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.modal-info-btn {
+  background: none;
+  border: 1px solid var(--border);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+  padding: 2px 9px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.modal-info-btn:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
   color: var(--accent);
 }
 
@@ -209,6 +272,45 @@
     color: #fbbf24;
     border-bottom-color: #92400e;
   }
+}
+
+.help-overlay {
+  background: var(--code-bg);
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.help-overlay h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.help-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-list dt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.help-list dd {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.help-list code {
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 
 .modal-body {
