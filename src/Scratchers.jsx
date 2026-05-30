@@ -85,15 +85,12 @@ function computeStats(prizes, overallOdds) {
   const totalPrizesInitially = prizes.reduce((sum, p) => sum + p.total, 0)
   const totalPrizesRemaining = prizes.reduce((sum, p) => sum + p.remaining, 0)
 
-  const totalTicketsInitial = prizes.reduce(
-    (max, p) => Math.max(max, p.odds * p.total),
-    0
+  const bestTier = prizes.reduce((best, p) =>
+    p.odds * p.total > best.odds * best.total ? p : best
   )
 
-  const estTicketsRemaining = prizes.reduce(
-    (max, p) => Math.max(max, p.odds * p.remaining),
-    0
-  )
+  const totalTicketsInitial = bestTier.odds * bestTier.total
+  const estTicketsRemaining = bestTier.odds * bestTier.remaining
 
   const claimedTickets = totalTicketsInitial - estTicketsRemaining
   const soldPct = totalTicketsInitial > 0 ? claimedTickets / totalTicketsInitial : 0
@@ -361,8 +358,8 @@ function Scratchers() {
   const [scratchers, setScratchers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [sortKey, setSortKey] = useState('gameNumber')
-  const [sortDir, setSortDir] = useState('desc')
+  const [sortKey, setSortKey] = useState('statOdds')
+  const [sortDir, setSortDir] = useState('asc')
   const [typeFilter, setTypeFilter] = useState('')
   const [search, setSearch] = useState('')
   const [selectedGame, setSelectedGame] = useState(null)
@@ -399,11 +396,10 @@ function Scratchers() {
       if (!prizeTiers) return { ...s, statOdds: null, publishedOdds: parseOdds(s.OverallOdds) }
 
       const totalPrizesRemaining = prizeTiers.reduce((sum, p) => sum + p.remaining, 0)
-      const totalPrizesInitially = prizeTiers.reduce((sum, p) => sum + p.total, 0)
-      const estRemaining = prizeTiers.reduce(
-        (max, p) => Math.max(max, p.odds * p.remaining),
-        0
+      const bestTier = prizeTiers.reduce((best, p) =>
+        p.odds * p.total > best.odds * best.total ? p : best
       )
+      const estRemaining = bestTier.odds * bestTier.remaining
 
       return {
         ...s,
