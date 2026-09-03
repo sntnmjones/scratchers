@@ -1,8 +1,5 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "framework": "vite",
-  "engines": {
-    "node": ">=20.19.0"
-  }
+  "framework": "vite"
 }
