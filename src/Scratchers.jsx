@@ -61,7 +61,7 @@ function parsePrizeTable(html) {
 
     const prizeMatch = prizeText.replace(/,/g, '').match(/[\d.]+/)
     const prizeValue = prizeMatch ? parseInt(prizeMatch[0], 10) : 0
-    const odds = parseInt(oddsText, 10)
+    const odds = parseFloat(oddsText)
     const remMatch = remainingText.match(/(\d+)\s*of\s*(\d+)/)
     const remaining = remMatch ? parseInt(remMatch[1], 10) : 0
     const total = remMatch ? parseInt(remMatch[2], 10) : 0
@@ -79,26 +79,43 @@ function parsePrizeTable(html) {
   return prizes
 }
 
-function computeStats(prizes, overallOdds) {
-  if (!prizes.length) return null
+function computeStats(prizes, overallOdds, ticketPrice = 0) {
+  if (!prizes || !prizes.length) return null
+
+  // 1. Calculate weighted initial ticket print run across all tiers to average out rounding noise
+  const totalWeight = prizes.reduce((sum, p) => sum + p.total, 0)
+  const totalTicketsInitial = totalWeight > 0
+    ? Math.round(prizes.reduce((sum, p) => sum + (p.odds * p.total * p.total), 0) / totalWeight)
+    : 0
+
+  // 2. Estimate remaining tickets prioritizing high-volume (lower tier) prizes to avoid low-sample variance
+  const sortedByVolume = [...prizes].sort((a, b) => b.total - a.total)
+  const lowTiers = sortedByVolume.slice(0, Math.max(1, Math.ceil(prizes.length / 2)))
+  
+  const lowTierWeight = lowTiers.reduce((sum, p) => sum + p.total, 0)
+  const estTicketsRemaining = lowTierWeight > 0
+    ? Math.round(lowTiers.reduce((sum, p) => sum + (p.odds * p.remaining * p.total), 0) / lowTierWeight)
+    : 0
 
   const totalPrizesInitially = prizes.reduce((sum, p) => sum + p.total, 0)
   const totalPrizesRemaining = prizes.reduce((sum, p) => sum + p.remaining, 0)
 
-  const bestTier = prizes.reduce((best, p) =>
-    p.odds * p.total > best.odds * best.total ? p : best
-  )
-
-  const totalTicketsInitial = bestTier.odds * bestTier.total
-  const estTicketsRemaining = bestTier.odds * bestTier.remaining
-
-  const claimedTickets = totalTicketsInitial - estTicketsRemaining
+  const claimedTickets = Math.max(0, totalTicketsInitial - estTicketsRemaining)
   const soldPct = totalTicketsInitial > 0 ? claimedTickets / totalTicketsInitial : 0
 
   const currentOverallOdds =
     totalPrizesRemaining > 0 && estTicketsRemaining > 0
       ? estTicketsRemaining / totalPrizesRemaining
       : null
+
+  // 3. Expected Value (EV) calculation based on remaining prize pool vs remaining ticket count
+  const initialValue = prizes.reduce((sum, p) => sum + (p.prizeValue * p.total), 0)
+  const remainingValue = prizes.reduce((sum, p) => sum + (p.prizeValue * p.remaining), 0)
+  
+  const initialEV = totalTicketsInitial > 0 ? initialValue / totalTicketsInitial : 0
+  const currentEV = estTicketsRemaining > 0 ? remainingValue / estTicketsRemaining : 0
+  
+  const netReturnPct = ticketPrice > 0 ? (currentEV / ticketPrice) : null
 
   const publishedOdds = parseOdds(overallOdds)
 
@@ -110,6 +127,9 @@ function computeStats(prizes, overallOdds) {
     soldPct,
     currentOverallOdds,
     publishedOdds,
+    initialEV,
+    currentEV,
+    netReturnPct,
     prizeTiers: prizes,
   }
 }
@@ -136,7 +156,7 @@ function PrizeDetailModal({ game, onClose }) {
         if (!cancelled) {
           setPrizes(parsed)
           setIsFallback(false)
-          if (!cancelled) setLoading(false)
+          setLoading(false)
         }
         return
       } catch (err) {
@@ -145,13 +165,15 @@ function PrizeDetailModal({ game, onClose }) {
           if (!cancelled) {
             setPrizes(fallback)
             setIsFallback(true)
-            if (!cancelled) setLoading(false)
+            setLoading(false)
           }
           return
         }
-        if (!cancelled) setError(err.message)
+        if (!cancelled) {
+          setError(err.message)
+          setLoading(false)
+        }
       }
-      if (!cancelled) setLoading(false)
     }
     fetchDetail()
     return () => {
@@ -161,7 +183,7 @@ function PrizeDetailModal({ game, onClose }) {
 
   const stats = useMemo(() => {
     if (!prizes) return null
-    return computeStats(prizes, game.OverallOdds)
+    return computeStats(prizes, game.OverallOdds, parsePrice(game.GamePrice))
   }, [prizes, game])
 
   const sortedTiers = useMemo(() => {
@@ -180,7 +202,7 @@ function PrizeDetailModal({ game, onClose }) {
           cmp = a.remaining - b.remaining
           break
         case 'pctRemaining':
-          cmp = a.remaining / a.total - b.remaining / b.total
+          cmp = (a.total > 0 ? a.remaining / a.total : 0) - (b.total > 0 ? b.remaining / b.total : 0)
           break
         default:
           cmp = a.prizeValue - b.prizeValue
@@ -245,17 +267,15 @@ function PrizeDetailModal({ game, onClose }) {
             <h4>What these numbers mean</h4>
             <dl className="help-list">
               <dt>Total Tickets Printed</dt>
-              <dd>The estimated total number of tickets created. Calculated as the highest value of <code>odds × total prizes</code> across all prize tiers.</dd>
+              <dd>Weighted average estimation of printed tickets using all prize tier probabilities.</dd>
               <dt>Est. Tickets Left</dt>
-              <dd>The minimum number of tickets that must still exist, based on unclaimed prizes. If a tier says "1 in 4,800,000" and 4 prizes remain, at least 19.2M tickets are left. This is a lower bound — there could be more non-winning tickets.</dd>
+              <dd>Estimated tickets remaining based on high-frequency, lower-tier prize claims to minimize jackpot variance.</dd>
               <dt>Est. % Sold</dt>
-              <dd>Derived from the gap between printed tickets and estimated remaining. Based on prize claim patterns, not actual sales data.</dd>
-              <dt>Original Odds</dt>
-              <dd>The published "1 in X" odds at game launch.</dd>
+              <dd>Percentage of ticket inventory estimated to be sold.</dd>
+              <dt>Current EV</dt>
+              <dd>Expected value per ticket based on remaining prize money divided by estimated remaining tickets.</dd>
               <dt>Stat. Odds</dt>
-              <dd>Estimated remaining tickets divided by total remaining prizes. If this is lower than the original odds, the game is statistically more favorable right now. Higher means less favorable.</dd>
-              <dt>Prizes Remaining</dt>
-              <dd>Straight count of how many prizes at all tiers are still unclaimed.</dd>
+              <dd>Estimated remaining tickets divided by remaining total prizes.</dd>
             </dl>
           </div>
         )}
@@ -280,8 +300,10 @@ function PrizeDetailModal({ game, onClose }) {
                 <span className="stat-value">{formatPct(stats.soldPct)}</span>
               </div>
               <div className="stat-card highlight">
-                <span className="stat-label">Original Odds</span>
-                <span className="stat-value">1 : {game.OverallOdds}</span>
+                <span className="stat-label">Current Ticket EV</span>
+                <span className="stat-value">
+                  ${stats.currentEV.toFixed(2)}
+                </span>
               </div>
               <div className="stat-card highlight">
                 <span className="stat-label">Stat. Odds</span>
@@ -323,7 +345,7 @@ function PrizeDetailModal({ game, onClose }) {
                 </thead>
                 <tbody>
                   {sortedTiers.map((tier, i) => {
-                    const pctLeft = (tier.remaining / tier.total) * 100
+                    const pctLeft = tier.total > 0 ? (tier.remaining / tier.total) * 100 : 0
                     return (
                       <tr key={i}>
                         <td className="prize-val">${formatNum(tier.prizeValue)}</td>
@@ -336,7 +358,7 @@ function PrizeDetailModal({ game, onClose }) {
                           <span className="pct-bar-cell">
                             <span
                               className="pct-bar"
-                              style={{ width: `${pctLeft}%` }}
+                              style={{ width: `${Math.min(100, Math.max(0, pctLeft))}%` }}
                             />
                             {pctLeft.toFixed(1)}%
                           </span>
@@ -393,19 +415,23 @@ function Scratchers() {
   const augmented = useMemo(() => {
     return scratchers.map((s) => {
       const prizeTiers = prizeDataFallback[s.GameNumber]
-      if (!prizeTiers) return { ...s, statOdds: null, publishedOdds: parseOdds(s.OverallOdds) }
+      const price = parsePrice(s.GamePrice)
+      
+      if (!prizeTiers) {
+        return { 
+          ...s, 
+          statOdds: null, 
+          currentEV: null,
+          publishedOdds: parseOdds(s.OverallOdds) 
+        }
+      }
 
-      const totalPrizesRemaining = prizeTiers.reduce((sum, p) => sum + p.remaining, 0)
-      const bestTier = prizeTiers.reduce((best, p) =>
-        p.odds * p.total > best.odds * best.total ? p : best
-      )
-      const estRemaining = bestTier.odds * bestTier.remaining
+      const computed = computeStats(prizeTiers, s.OverallOdds, price)
 
       return {
         ...s,
-        statOdds: totalPrizesRemaining > 0 && estRemaining > 0
-          ? estRemaining / totalPrizesRemaining
-          : null,
+        statOdds: computed ? computed.currentOverallOdds : null,
+        currentEV: computed ? computed.currentEV : null,
         publishedOdds: parseOdds(s.OverallOdds),
       }
     })
@@ -445,9 +471,13 @@ function Scratchers() {
         case 'odds':
           cmp = parseOdds(a.OverallOdds) - parseOdds(b.OverallOdds)
           break
-        case 'statOdds':
-          cmp = (a.statOdds || 0) - (b.statOdds || 0)
+        case 'statOdds': {
+          if (a.statOdds === null && b.statOdds === null) cmp = 0
+          else if (a.statOdds === null) return 1
+          else if (b.statOdds === null) return -1
+          else cmp = a.statOdds - b.statOdds
           break
+        }
         case 'date':
           cmp = parseMarketDate(a.GotoMarketDate) - parseMarketDate(b.GotoMarketDate)
           break
@@ -531,7 +561,7 @@ function Scratchers() {
             <dt>Odds</dt>
             <dd>The published "1 in X" overall odds at game launch.</dd>
             <dt>Est. Odds</dt>
-            <dd>Estimated current odds based on remaining prizes. Green means better than published, red means worse. If a tier's remaining prizes imply many tickets must still exist, this adjusts upward. Calculated from build-time prize snapshots.</dd>
+            <dd>Estimated current odds based on weighted high-volume prize claims. Green means statistically better than published, red means worse.</dd>
             <dt>Type</dt>
             <dd>The game mechanic (e.g. Key Number Match, Crossword, Bingo).</dd>
           </dl>
@@ -560,6 +590,7 @@ function Scratchers() {
                 Est. Odds {sortIcon('statOdds')}
               </th>
               <th>Type</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
