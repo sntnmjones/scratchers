@@ -2,10 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import './Scratchers.css'
 import prizeDataFallback from './prize-data.json'
 
-const API_BASE =
-  'https://www.calottery.com/api/Sitecore/ScratchersFilteredList/GetScratchers'
+const API_BASE = '/api/proxy'
 const API_PARAMS =
-  'modelId=0dc0c687-836a-43d3-aa8b-a0491dbf4001&sortBy=newest'
+  'action=list&modelId=0dc0c687-836a-43d3-aa8b-a0491dbf4001&sortBy=newest'
 
 function parsePrice(str) {
   const num = parseInt(str.replace(/[^0-9]/g, ''), 10)
@@ -147,7 +146,7 @@ function PrizeDetailModal({ game, onClose }) {
     let cancelled = false
     async function fetchDetail() {
       try {
-        const url = `https://www.calottery.com/en${game.GameProductPage}`
+        const url = `/api/proxy?action=game&path=${encodeURIComponent(game.GameProductPage)}`
         const res = await fetch(url)
         if (!res.ok) throw new Error(`Failed to load: ${res.status}`)
         const html = await res.text()

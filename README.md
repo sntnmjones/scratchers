@@ -1,16 +1,33 @@
-# React + Vite
+# CA Lottery Scratchers App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite application that displays real-time California Lottery scratcher statistics, odds, expected value (EV), and prize tables by proxying live data from `calottery.com`.
 
-Currently, two official plugins are available:
+## Requirements
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Node.js**: Version 22+ (configured for Vercel and local dev via [nvm](https://github.com/nvm-sh/nvm)):
+  ```bash
+  nvm install 22
+  nvm use 22
+  ```
 
-## React Compiler
+## Getting Started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## Expanding the ESLint configuration
+2. Run the development server:
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:5173](http://localhost:5173) in your browser. Live data is fetched through a built-in local Vite dev server proxy middleware (`/api/proxy`).
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Production & Deployment (Vercel)
+
+- **Build**:
+  ```bash
+  npm run build
+  ```
+- **Deployment**: 
+  The app is configured for Vercel deployment using Node 22 (`vercel.json`) and a serverless API proxy (`api/proxy.js`) which fetches live data server-side from `calottery.com`, entirely bypassing browser CORS restrictions. Push to your connected Vercel repository to deploy.
